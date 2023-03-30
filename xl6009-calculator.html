@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Inductor for Low Power Boost Converter</title>
+    <link rel="stylesheet" href="calculator.css">
+  </head>
+  <body>
+    <h1>Boost DC-DC converter Calculator, for XL6009 and similar</h1>
+    <h4>Based on https://www.ti.com/lit/ml/slva797/slva797.pdf <br/>
+    And on https://www.ti.com/lit/ml/slva369a/slva369a.pdf <br/> <br/> <br/>
+    DC DC Boost Controller is assumed to be capable of operating in both CCM and DCM</h4>
+    <div class="calculator-container">
+      <div class="calculator-form">
+        <h2>Inductance calculation through Inductor Current Ripple</h2>
+        <form id="calc1">
+          <label for="frequency">Frequency, kHz:</label>
+          <input type="number" id="frequency" name="frequency" value=400 required><br><br>
+          
+          <label for="vin">Vin, V:</label>
+          <input type="number" id="vin" name="vin" value=5 required><br><br>
+          
+          <label for="vout">Vout, V:</label>
+          <input type="number" id="vout" name="vout" value=18 required><br><br>
+
+          <label for="vout_ripple">Vout ripple, mV:</label>
+          <input type="number" id="vout_ripple" name="vout_ripple" value=100 required><br><br>
+
+          
+          <label for="iout_max">Iout_max, A:</label>
+          <input type="number" id="iout_max" name="iout_max" value=1 required><br><br>
+          
+          <label for="efficiency">Efficiency:</label>
+          <input type="number" id="efficiency" name="efficiency" value=0.8 required><br><br>
+
+          <label for="vd">Forward voltage of the rectify diode or the synchronous MOSFET in on-state:</label>
+          <input type="number" id="vd" name="efficiency" value=0.8 required><br><br>
+
+          
+          <input type="button" value="Calculate" onclick="calculate1()">
+        </form>
+        <div class="result" id="maxI_l"></div>
+        <div class="result" id="inductor"></div>
+        <div class="result" id="D"></div>
+      </div>
+
+
+      <div class="calculator-form">
+        <h2>Saturation Current Calculation</h2>
+        <h5>* Check Recommended Operating Conditions in the datasheet</h3>
+        <h5>* Check Limitation by SMD/TH Package Size</h3>
+        <form id="calc2">
+          <label for="inductor">Select Inductor value, uH:</label>
+          <input type="number" id="inductorSelected" name="inductor" value=67 required><br><br>
+                 
+          <input type="button" value="Calculate" onclick="calculate2()">
+        </form>        
+        <div id="result-display1" class="result-display">
+          <div class="result" id="sat_ripple"></div>
+          <div class="result" id="Cout"></div>
+          <div class="result" id="Cout_esr"></div>
+          <div class="result" id="Cout_rms"></div>          
+        </div>
+        <img src="xl6009.jpg" width="500px" />
+      </div>
+
+      <div class="calculator-form">
+        <h2>Power Loss Calculation</h2>
+        <form id="calc3">
+          <label for="dcr">Inductor DCR, Ohm:</label>
+          <input type="number" id="dcr" name="dcr" value=0.25 required><br><br>
+
+          <label for="mosfetR">Mosfet Ron, Ohm:</label>
+          <input type="number" id="mosfetR" name="mosfetR" value=0.25 required><br><br>
+
+          <label for="CoutR">Cout ESR, Ohm:</label>
+          <input type="number" id="CoutR" name="CoutR" value=0.05 required><br><br>
+
+                 
+          <input type="button" value="Calculate" onclick="calculate3()">
+        </form>
+        <div id="result-display1" class="result-display">
+          <div class="result" id="P_loss_inductor"></div>
+          <div class="result" id="P_loss_mosfet"></div>
+          <div class="result" id="P_loss_diode"></div> 
+          <div class="result" id="P_loss_c_out"></div>          
+        </div>
+      </div>
+
+
+    </div>
+    <script>
+      function calculate1() {
+        const frequency = parseFloat(document.getElementById("frequency").value)*1000;
+        const vin = parseFloat(document.getElementById("vin").value);
+        const vout = parseFloat(document.getElementById("vout").value);
+        const iout_max = parseFloat(document.getElementById("iout_max").value);
+        const efficiency = parseFloat(document.getElementById("efficiency").value);
+        const vd = parseFloat(document.getElementById("vd").value);
+        
+        const i_l_max = (vout * iout_max) / (vin * efficiency);
+        const l = (vin * (vout+vd-vin)) / (0.3*i_l_max * frequency* (vout+vd));
+
+        const d = 1 - (vin*efficiency/vout)
+        
+        document.getElementById("maxI_l").innerHTML = "Max inductor current, A: " + i_l_max.toFixed(2);
+
+        document.getElementById("inductor").innerHTML = "Min inductor value, uH: " + (l*1e6).toFixed(2);
+        document.getElementById("calc2").querySelector("#inductorSelected").value = (l*1e6).toFixed(2);
+
+        document.getElementById("D").innerHTML = "Duty cycle: " + (d*100).toFixed(2) + "%";
+
+        calculate2()
+        calculate3()
+      }
+
+      function calculate2() {
+        const inductorSelected = parseFloat(document.getElementById("inductorSelected").value)/1e6;
+        const frequency = parseFloat(document.getElementById("frequency").value)*1000;
+        const vin = parseFloat(document.getElementById("vin").value);
+        const vout = parseFloat(document.getElementById("vout").value);
+        const vd = parseFloat(document.getElementById("vd").value);        
+        const iout_max = parseFloat(document.getElementById("iout_max").value);
+        const efficiency = parseFloat(document.getElementById("efficiency").value);  
+        const vout_ripple = parseFloat(document.getElementById("vout_ripple").value)/1000;  
+        const d = 1 - (vin*efficiency/vout)
+
+
+        const i_l_max = (vout * iout_max) / (vin * efficiency);
+        const ccm_sat_ripple = (vin * (vout+vd-vin)) / (inductorSelected*frequency*(vout+vd));
+        const dcm_sat_ripple = Math.sqrt((2*iout_max*(vout+vd+vin))/(inductorSelected*frequency))
+
+        if(i_l_max>=ccm_sat_ripple){
+          document.getElementById("sat_ripple").innerHTML = "CCM: Inductor ripple, A: " + ccm_sat_ripple.toFixed(2);
+        }else{
+          document.getElementById("sat_ripple").innerHTML = "DCM: Inductor peak, A: " + dcm_sat_ripple.toFixed(2);  
+        }
+
+        const c_out_min = iout_max*d/2/frequency/vout_ripple*1e6;
+        const c_out_esr = vout_ripple/((iout_max/2/(1-d))+0.5*(vin*d/frequency/inductorSelected))*1000;
+        const c_out_rms = iout_max/2*Math.sqrt(d/(1-d))
+
+        document.getElementById("Cout").innerHTML = "Cout, uF: >=" + c_out_min.toFixed(2);  
+        document.getElementById("Cout_esr").innerHTML = "Cout, ESR: mOhm: <=" + c_out_esr.toFixed(2);  
+        document.getElementById("Cout_rms").innerHTML = "Cout, rms A: " + c_out_rms.toFixed(2);  
+        
+        calculate3()
+      }
+
+      const Mode = {
+        CCM: 'ccm',
+        DCM: 'dcm'
+      };
+
+      function calculateOnOffTime(frequency, dutyCycle) {
+        // Calculate period in seconds
+        let period = 1 / frequency;
+
+        // Calculate tOn and tOff times in seconds
+        let tOn = (dutyCycle / 100) * period;
+        let tOff = period - tOn;
+
+        // Return tOn and tOff times as an object
+        return {
+          tOn: tOn,
+          tOff: tOff
+        };
+      }
+
+
+      function calculate3() {
+        const inductorSelected = parseFloat(document.getElementById("inductorSelected").value)/1e6;
+
+        const frequency = parseFloat(document.getElementById("frequency").value)*1000;
+        const vin = parseFloat(document.getElementById("vin").value);
+        const vout = parseFloat(document.getElementById("vout").value);
+        const vd = parseFloat(document.getElementById("vd").value);        
+        const iout_max = parseFloat(document.getElementById("iout_max").value);
+        const dcr = parseFloat(document.getElementById("dcr").value);
+        const efficiency = parseFloat(document.getElementById("efficiency").value);
+        const mosfetR = parseFloat(document.getElementById("mosfetR").value);
+        const CoutR = parseFloat(document.getElementById("CoutR").value);
+        const d = 1 - (vin*efficiency/vout)
+
+        const i_l_max = (vout * iout_max) / (vin * efficiency);
+        const ccm_sat_ripple = (vin * (vout+vd-vin)) / (inductorSelected*frequency*(vout+vd));
+        const dcm_sat_ripple = Math.sqrt((2*iout_max*(vout+vd+vin))/(inductorSelected*frequency))
+
+        const dutyCycle = 1 - (vin*efficiency/vout)
+        const timing = calculateOnOffTime(frequency, dutyCycle)
+        const Ts=timing.tOn + timing.tOff
+
+
+
+        mode = (i_l_max>=ccm_sat_ripple) ? Mode.CCM : Mode.DCM
+
+        inductor_i_peak = (mode == Mode.CCM) ? i_l_max : dcm_sat_ripple
+
+
+        const i_rms_inductor = Math.sqrt((inductor_i_peak*inductor_i_peak*(timing.tOn + timing.tOff))/(3*Ts))
+        const P_loss_inductor = i_rms_inductor*i_rms_inductor*dcr
+
+        const i_rms_mosfet = Math.sqrt((inductor_i_peak*inductor_i_peak*(timing.tOff))/(3*Ts))
+        const P_loss_mosfet = i_rms_mosfet*i_rms_mosfet*mosfetR
+
+        const i_rms_diode = Math.sqrt((inductor_i_peak*inductor_i_peak*(timing.tOn + timing.tOn))/(3*Ts))
+        const P_loss_diode = i_rms_diode * vd;
+
+
+        const c_out_rms = iout_max/2*Math.sqrt(d/(1-d))
+        const P_loss_c_out = c_out_rms * c_out_rms * CoutR  
+
+
+        document.getElementById("P_loss_inductor").innerHTML = "DC power loss, Inductor, W: " + P_loss_inductor.toFixed(3);
+        document.getElementById("P_loss_mosfet").innerHTML = "DC power loss, switch, W: " + P_loss_mosfet.toFixed(3);
+        document.getElementById("P_loss_diode").innerHTML = "DC power loss, diode, W: " + P_loss_diode.toFixed(3);
+        document.getElementById("P_loss_c_out").innerHTML = "AC power loss, Cout, W: " + P_loss_c_out.toFixed(3);
+      }
+
+
+
+    </script>
+  </body>
+</html>
