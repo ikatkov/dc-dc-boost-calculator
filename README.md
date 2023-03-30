@@ -1,9 +1,9 @@
-Random Notes on dc converters
+# [Calculator link](https://ikatkov.github.io/dc-dc-boost-calculator/xl6009-calculator.html)
+
+# Random Notes on dc converters
 
 
-See this, there is no clear winner for all loads
-https://www.analog.com/en/technical-articles/synchronous-or-nonsynchronous-topology-boost-system-performance-with-the-right-dcdc-converter.html
-
+[See this](https://www.analog.com/en/technical-articles/synchronous-or-nonsynchronous-topology-boost-system-performance-with-the-right-dcdc-converter.html), there is no clear winner for all loads
 
 Easy to make negative rail from DC DC buck converter with coupled inductor
 
